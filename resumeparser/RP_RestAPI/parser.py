@@ -264,21 +264,19 @@ def build_resume_index(resume_list):
     last_section = None
     for index, item in enumerate(sorted_index, start=0):
         if item["start"] is None:
-            #print(index, "first", item)
             continue
         if last_section is None:
             item["end"] = len(resume_list)
             last_section = index
             index_copy[index] = item
-            #print(index, "second", item)
             continue
         else:
             item["end"] = sorted_index[last_section]["start"] - 1
             index_copy[index] = item
             last_section = index
-            #print(index, "third", item)
 
     return index_copy
+
 
 def test_index(index_copy, resume_list):
     for i in sorted(index_copy, key=lambda x: (x['start'] is not None, x['start']), reverse=False):
@@ -289,15 +287,6 @@ def test_index(index_copy, resume_list):
                 print(i['name'], resume_list[i['start'] + 1:i['end'] + 1])
     # Contact
     return None
-
-
-def parse_contact(data_list):
-    try:
-        section_start_index = data_list.index("Contact")
-        section_stop_index = data_list.index("Top Skills")
-    except Exception as e:
-        return
-    return
 
 
 def parse(resume):
@@ -344,8 +333,6 @@ def parse(resume):
         data = data.replace(i, "")
 
     result_list = data.split('\n')
-
-    #return {"index": build_resume_index(result_list)}
 
     lengthOfResultArray = result_list.__len__()
     for i in result_list:
@@ -482,6 +469,7 @@ def parse(resume):
     alld['experience'] = complete_experience
     alld['education'] = complete_education
     alld['raw_data'] = data
+    alld['result_list'] = result_list
     alld['index'] = build_resume_index(result_list)
     device.close()
     retstr.close()

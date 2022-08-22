@@ -68,10 +68,10 @@ def get_top_skills_index(resume_list):
     return start_index
 
 
-def get_language_index(resume_list):
+def get_languages_index(resume_list):
     start_index = None
     try:
-        start_index = resume_list.index("Language")
+        start_index = resume_list.index("Languages")
     except ValueError as e:
         pass
 
@@ -235,7 +235,7 @@ def build_resume_index(resume_list):
     summary_start_index = get_summary_index(resume_list)
     activity_start_index = get_activity_index(resume_list)
     education_start_index = get_education_index(resume_list)
-    language_start_index = get_language_index(resume_list)
+    languages_start_index = get_languages_index(resume_list)
     experience_start_index = get_experience_index(resume_list)
     top_skills_start_index = get_top_skills_index(resume_list)
     certifications_start_index = get_certifications_index(resume_list)
@@ -248,7 +248,7 @@ def build_resume_index(resume_list):
         , {"name": "summary", "start": summary_start_index, "end": None}
         , {"name": "activity", "start": activity_start_index, "end": None}
         , {"name": "education", "start": education_start_index, "end": None}
-        , {"name": "language", "start": language_start_index, "end": None}
+        , {"name": "languages", "start": languages_start_index, "end": None}
         , {"name": "experience", "start": experience_start_index, "end": None}
         , {"name": "top_skills", "start": top_skills_start_index, "end": None}
         , {"name": "certifications", "start": certifications_start_index, "end": None}
@@ -289,6 +289,158 @@ def test_index(index_copy, resume_list):
     return None
 
 
+def parse_activity(result_list):
+    return None
+
+
+def parse_education(result_list_slice):
+    education_list = []
+
+    def init_education():
+        education = {'name': None, 'degree': None}
+        return education
+
+    education = init_education()
+    for line in result_list_slice:
+        if line == '':
+            if education['name'] is not None and education['degree'] is not None:
+                education_list.append(education)
+            education = init_education()
+        elif line != '':
+            if education['name'] is None:
+                education['name'] = line
+            elif education['degree'] is None:
+                education['degree'] = line
+
+    return education_list
+
+
+def parse_experience(result_list_slice):
+    import re
+    from datetime import datetime
+    experience_list = []
+
+    def init_experience():
+        experience = {'name': None, 'title': None, 'start': None, 'end': None, 'duration': None, 'location': None}
+        return experience
+
+    experience = init_experience()
+    continued_experience = False
+    continued_name = None
+    previous_line = None
+    ce_regex = re.compile("^[0-9 years]*[0-9 months]*$")
+
+    for line in result_list_slice:
+        print(f'current line: {line}, experience: {experience}')
+        previous_line = line
+        if line == '':
+            if experience['name'] is not None and experience['title'] is not None and experience['start'] is not None:
+                experience_list.append(experience)
+            experience = init_experience()
+        elif line != '':
+            if experience['name'] is None:
+                if continued_experience is True:
+                    experience['name'] = continued_name
+                if ce_regex.search(line) is not None:
+                    continued_experience = True
+                    continued_name = previous_line
+                    continue
+                if experience['name'] is None:
+                    experience['name'] = line
+            elif experience['title'] is None:
+                if ce_regex.search(line) is not None:
+                    continued_experience = True
+                    continued_name = previous_line
+                    continue
+                experience['title'] = line
+            elif experience['start'] is None:
+                try:
+                    split_line = line.split('-')
+                    start_str = split_line[0]
+                    s = split_line[1]
+                except IndexError:
+                    print(f"Error: could not split {line}")
+                end_str = s[0:s.find('(')]
+                duration_str = s[s.find('(') + 1:s.find(')')]
+                mask = '%B %Y'
+                dt1 = datetime.strptime(start_str, mask)
+                try:
+                    dt2 = datetime.strptime(end_str, mask)
+                except ValueError:
+                    dt2 = datetime.today()
+
+                experience['start'] = dt1.timestamp()
+                experience['end'] = dt2.timestamp()
+                experience['duration'] = (dt2-dt1).days
+            elif experience['location'] is None:
+                experience['location'] = line
+
+    return experience_list
+
+
+def parse_summary(result_list_slice):
+
+    def init_summary():
+        summary = {'full_name': None, 'tagline': None, 'location': None, 'summary_paragraph': None}
+        return summary
+
+    summary = init_summary()
+
+    for index, line in enumerate(result_list_slice, start=0):
+        if index == 0:
+            summary['full_name'] = line
+        elif line != '' and summary['tagline'] is None:
+            summary['tagline'] = line
+        elif line != '' and summary['location'] is None:
+            summary['location'] = line
+
+        if 3 < index < len(result_list_slice)-1 and line != '' and line != 'Summary':
+            if summary['summary_paragraph'] is None:
+                summary['summary_paragraph'] = line
+            else:
+                summary['summary_paragraph'] += line
+
+    return summary
+
+
+def parse_simple(result_list_slice):
+    # Used to parse the following indexes:
+    #  top skills
+    #  certifications
+    #  languages
+    #  patents
+    #  publications
+    #  honors and awards
+    simple = []
+    for line in result_list_slice:
+        if line != '':
+            simple.append(line)
+
+    return simple
+
+
+def parse_contact(result_list_slice):
+    import re
+
+    def init_contact():
+        contact = {'email': None, 'phone': None, 'linkedin_url': None}
+        return contact
+
+    contact = init_contact()
+    email_regex = re.compile('\S+@\S+')
+    linkedin_regex = re.compile("^[-a-zA-Z0-9@:%._\\+~#=]{1,256}\\.[a-zA-Z0-9()]{1,6}\\b(?:[-a-zA-Z0-9()@:%_\\+.~#?&\\/=]*)$")
+    phone_regex = re.compile('((?:\+\d{2}[-\.\s]??|\d{4}[-\.\s]??)?(?:\d{3}[-\.\s]??\d{3}[-\.\s]??\d{4}|\(\d{3}\)\s*\d{3}[-\.\s]??\d{4}|\d{3}[-\.\s]??\d{4}))')
+    for line in result_list_slice:
+        if email_regex.search(line) is not None:
+            contact['email'] = line
+        elif linkedin_regex.search(line) is not None:
+            contact['linkedin_url'] = line
+        elif phone_regex.search(line) is not None:
+            contact['phone'] = line
+
+    return contact
+
+
 def parse(resume):
     imagewriter = None
     caching = True
@@ -296,20 +448,6 @@ def parse(resume):
     retstr = io.StringIO()
     rsrcmgr = PDFResourceManager(caching=caching)
     device = TextConverter(rsrcmgr, retstr, laparams=laparams, imagewriter=imagewriter)
-    data = []
-    skills = []
-    languages = []
-    summary = []
-    certifications = []
-    contact = []
-    linkedin = []
-    experience = []
-    education = []
-    complete_experience = []
-    complete_education = []
-    exp_dict = {}
-    edu_dict = {}
-    alld = {}
 
     interpreter = PDFPageInterpreter(rsrcmgr, device)
     for page in PDFPage.get_pages(resume, caching=caching, check_extractable=True):
@@ -333,145 +471,83 @@ def parse(resume):
         data = data.replace(i, "")
 
     result_list = data.split('\n')
+    index = build_resume_index(result_list)
 
-    lengthOfResultArray = result_list.__len__()
-    for i in result_list:
-        if i == 'Contact':
-            value = result_list.index(i)
-            while True:
-                value = value + 1
-                contact.append(result_list[value].strip())
-                if result_list[value] == '':
-                    contact.remove(result_list[value])
-                    break
+    #convert list to dictionary
+    index_d = {item['name']:item for item in index}
 
-        if i.__contains__('www.linkedin.com'):
-            value = result_list.index(i)
-            while True:
-                linkedin.append(result_list[value])
-                value = value + 1
-                if result_list[value] == '':
-                    break
-            if len(linkedin) >= 2:
-                ln = []
-                merged = linkedin[0] + linkedin[1].strip()
-                ln.append(merged)
-                linkedin = ln
+    # summary is special due to name fields above start of index
+    try:
+        summary = parse_summary(result_list[index_d['summary']['start']:min(len(result_list), index_d['summary']['end']+1)])
+    except TypeError:
+        summary = None
 
-        if i == 'Top Skills':
-            value = result_list.index(i)
-            while True:
-                value = value + 1
-                skills.append(result_list[value])
-                if result_list[value] == '':
-                    skills.remove(result_list[value])
-                    break
+    try:
+        contact = parse_contact(result_list[index_d['contact']['start']+1:min(len(result_list), index_d['contact']['end']+1)])
+    except TypeError:
+        contact = None
 
-        if i.__contains__('Certifications'):
-            value = result_list.index(i)
-            while True:
-                value = value + 1
-                certifications.append(result_list[value])
-                if result_list[value] == '':
-                    certifications.remove(result_list[value])
-                    break
+    try:
+        experience = parse_experience(result_list[index_d['experience']['start']+1:min(len(result_list), index_d['experience']['end']+1)])
+    except TypeError:
+        experience = None
 
-        if i.__contains__('Summary'):
-            value = result_list.index(i)
-            while True:
-                value = value + 1
-                summary.append(result_list[value])
-                if result_list[value] == '':
-                    summary.remove(result_list[value])
-                    break
+    try:
+        education = parse_education(result_list[index_d['education']['start']+1:min(len(result_list), index_d['education']['end']+1)])
+    except TypeError:
+        education = None
 
-        if i == 'Languages':
-            value = result_list.index(i)
-            while True:
-                value = value + 1
-                languages.append(result_list[value])
-                if result_list[value] == '':
-                    languages.remove(result_list[value])
-                    break
+    try:
+        top_skills = parse_simple(result_list[index_d['top_skills']['start']+1:min(len(result_list), index_d['top_skills']['end']+1)])
+    except TypeError:
+        top_skills = None
 
-        if i == 'Experience':
-            value = result_list.index(i)
-            value = value + 2
+    try:
+        languages = parse_simple(result_list[index_d['languages']['start']+1:min(len(result_list), index_d['languages']['end']+1)])
+    except TypeError:
+        languages = None
 
-            while True:
-                # Following condition checks if we have reached the end of the file, this is necessary in case if this section is the last section
-                if (value >= lengthOfResultArray - 1):
-                    break
-                # Following condition checks if we have encountered another section that means this section has finished
-                if (check_section_start(result_list[value])) is True:
-                    break
+    try:
+        patents = parse_simple(result_list[index_d['patents']['start']+1:min(len(result_list), index_d['patents']['end']+1)])
+    except TypeError:
+        patents = None
 
-                if (result_list[value] == ''):
-                    value += 1
-                    experience = []
-                # Following condition checks if the next three non-empty lines of document are: Name of Company, Position, Period, and Location/Place respectively.
-                elif (
-                        result_list[value - 1] == ""
-                        and result_list[value + 1] != ""
-                        and result_list[value + 2].__contains__("-")
-                ):
-                    # If the above condition is true, we can fetch this experience object and save it in complete_experience array.
-                    experience.append(result_list[value])  # Company Name
-                    experience.append(result_list[value + 1])  # Job Title
-                    experience.append(result_list[value + 2])  # Period
-                    experience.append(result_list[value + 3])  # Place
-                    listOfExp = ["company", "position", "period", "place"]
-                    zipbObj = zip(listOfExp, experience)
-                    exp_dict = dict(zipbObj)
-                    complete_experience.append(exp_dict)
-                    experience = []
-                    # As we have fetched 4 indexes in above code, and we know the value at fifth index can either be a description or an empty space,
-                    # so we increment the counter to 5.
-                    value += 5
-                else:
-                    value += 1
+    try:
+        certifications = parse_simple(result_list[index_d['certifications']['start']+1:min(len(result_list), index_d['certifications']['end']+1)])
+    except TypeError:
+        certifications = None
 
-        if i == 'Education':
-            value = result_list.index(i)
-            value = value + 1
-            index = 0
-            while True:
-                # Following condition checks if we have reached the end of the file, this is necessary in case if this section is the last section
-                if (value >= lengthOfResultArray - 1):
-                    break
-                # Following condition checks if we have encountered another section that means this section has finished
-                if (check_section_start(result_list[value])) is True:
-                    break
+    try:
+        publications = parse_simple(result_list[index_d['publications']['start']+1:min(len(result_list), index_d['publications']['end']+1)])
+    except TypeError:
+        publications = None
 
-                if result_list[value] == '':
-                    value = value + 1
-                else:
-                    education.append(result_list[value])
-                    value = value + 1
-                    index += 1
-                    if (index == 2):
-                        # When we have fetched the 2 values(school & degree) in the education array, we can now create an education object from this array
-                        listOfEdu = ["school", "degree"]
-                        zipbObj = zip(listOfEdu, education)
-                        edu_dict = dict(zipbObj)
-                        # Save the education object in complete_education array. This complete_education array will have all the education objects
-                        complete_education.append(edu_dict)
-                        index = 0
-                        education = []
+    try:
+        activity = parse_activity(result_list[index_d['activity']['start']+1:min(len(result_list), index_d['activity']['end']+1)])
+    except TypeError:
+        activity = None
 
-    alld['contact'] = contact
-    alld['skills'] = skills
-    alld['linkedin'] = linkedin[0]
-    alld['skills'] = skills
-    alld['certifications'] = certifications
-    alld['summary'] = summary
-    alld['languages'] = languages
-    alld['experience'] = complete_experience
-    alld['education'] = complete_education
-    alld['raw_data'] = data
-    alld['result_list'] = result_list
-    alld['index'] = build_resume_index(result_list)
+    try:
+        honors_awards = parse_simple(result_list[index_d['honors_awards']['start']+1:min(len(result_list), index_d['honors_awards']['end']+1)])
+    except TypeError:
+        honors_awards = None
+
+    parsed_resume = {
+        'summary': summary,
+        'contact': contact,
+        'experience': experience,
+        'education': education,
+        'top_skills': top_skills,
+        'languages': languages,
+        'patents': patents,
+        'certifications': certifications,
+        'publications': publications,
+        'activity': activity,
+        'honors_awards': honors_awards
+    }
+
     device.close()
     retstr.close()
 
-    return alld
+    return parsed_resume
+

@@ -297,18 +297,18 @@ def parse_education(result_list_slice):
     education_list = []
 
     def init_education():
-        education = {'name': None, 'degree': None}
+        education = {'school': None, 'degree': None}
         return education
 
     education = init_education()
     for line in result_list_slice:
         if line == '':
-            if education['name'] is not None and education['degree'] is not None:
+            if education['school'] is not None and education['degree'] is not None:
                 education_list.append(education)
             education = init_education()
         elif line != '':
-            if education['name'] is None:
-                education['name'] = line
+            if education['school'] is None:
+                education['school'] = line
             elif education['degree'] is None:
                 education['degree'] = line
 
@@ -367,7 +367,7 @@ def parse_experience(result_list_slice):
         return start, end, duration
 
     def init_experience():
-        experience = {'name': None, 'title': None, 'start': None, 'end': None, 'duration': None, 'location': None}
+        experience = {'company': None, 'position': None, 'start': None, 'end': None, 'duration': None, 'location': None}
         return experience
 
     experience = init_experience()
@@ -385,7 +385,7 @@ def parse_experience(result_list_slice):
         line = result_list_slice[index]
         #print(line)
         if line == "":
-            if experience['name'] is not None and experience['title'] is not None and experience['start'] is not None:
+            if experience['company'] is not None and experience['position'] is not None and experience['start'] is not None:
                 experience_list.append(experience)
                 experience = init_experience()
             experience_block += 1
@@ -400,21 +400,21 @@ def parse_experience(result_list_slice):
             if current_segment >= 3:
                 if continued_experience is True:
                     if ce_regex.search(result_list_slice[index + 1]) is not None:
-                        experience['name'] = result_list_slice[index + 0]
+                        experience['company'] = result_list_slice[index + 0]
                         continued_name = result_list_slice[index + 0]
-                        experience['title'] = result_list_slice[index + 2]
+                        experience['position'] = result_list_slice[index + 2]
                         experience['start'], experience['end'], experience['duration'] = get_timeline(
                             result_list_slice[index + 3])
                         experience['location'] = result_list_slice[index + 4]
                     else:
-                        experience['name'] = continued_name
-                        experience['title'] = result_list_slice[index + 0]
+                        experience['company'] = continued_name
+                        experience['position'] = result_list_slice[index + 0]
                         experience['start'], experience['end'], experience['duration'] = get_timeline(
                             result_list_slice[index + 1])
                         experience['location'] = result_list_slice[index + 2]
                 else:
-                    experience['name'] = result_list_slice[index + 0]
-                    experience['title'] = result_list_slice[index + 1]
+                    experience['company'] = result_list_slice[index + 0]
+                    experience['position'] = result_list_slice[index + 1]
                     experience['start'], experience['end'], experience['duration'] = get_timeline(
                         result_list_slice[index + 2])
                     experience['location'] = result_list_slice[index + 3]

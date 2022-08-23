@@ -315,10 +315,56 @@ def parse_education(result_list_slice):
     return education_list
 
 
+#TO-DO: Handle multi-line sections (e.g., the title is longer than one line)
 def parse_experience(result_list_slice):
     import re
-    from datetime import datetime
     experience_list = []
+
+    def get_indices(x: list, value: int) -> list:
+        indices = list()
+        i = 0
+        while True:
+            try:
+                # find an occurrence of value and update i to that index
+                i = x.index(value, i)
+                # add i to the list
+                indices.append(i)
+                # advance i by 1
+                i += 1
+            except ValueError as e:
+                break
+        return indices
+
+    def get_timeline(timeline):
+        from datetime import datetime
+        start, end, duration = None, None, None
+        try:
+            split_line = timeline.split('-')
+            start_str = split_line[0]
+            s = split_line[1]
+            end_str = s[0:s.find('(')]
+            duration_str = s[s.find('(') + 1:s.find(')')]
+
+            mask = '%B %Y'
+            try:
+                dt1 = datetime.strptime(start_str, mask)
+            except ValueError:
+                dt1 = None
+            try:
+                dt2 = datetime.strptime(end_str, mask)
+            except ValueError:
+                dt2 = datetime.today()
+
+            if dt1 is not None and dt2 is not None:
+                start = dt1.timestamp()
+                end = dt2.timestamp()
+                duration = (dt2 - dt1).days
+
+        except IndexError:
+            # print(f"Error: could not split {line}")
+            pass
+
+        return start, end, duration
 
     def init_experience():
         experience = {'name': None, 'title': None, 'start': None, 'end': None, 'duration': None, 'location': None}
@@ -330,51 +376,49 @@ def parse_experience(result_list_slice):
     previous_line = None
     ce_regex = re.compile("^[0-9 years]*[0-9 months]*$")
 
-    for line in result_list_slice:
-        print(f'current line: {line}, experience: {experience}')
-        previous_line = line
-        if line == '':
+    section_length = len(result_list_slice)
+    empty_list = get_indices(result_list_slice, "")
+    number_empty = len(empty_list)
+    assert number_empty == result_list_slice.count('')
+    experience_block, index = 0, 0
+    while experience_block < number_empty or index < section_length:
+        line = result_list_slice[index]
+        #print(line)
+        if line == "":
             if experience['name'] is not None and experience['title'] is not None and experience['start'] is not None:
                 experience_list.append(experience)
-            experience = init_experience()
-        elif line != '':
-            if experience['name'] is None:
+                experience = init_experience()
+            experience_block += 1
+            index += 1
+        else:
+            current_segment = empty_list[experience_block] - index
+            segment_iter = range(0, current_segment)
+            for current_line in segment_iter:
+                if ce_regex.search(result_list_slice[index + current_line]) is not None:
+                    continued_experience = True
+
+            if current_segment >= 3:
                 if continued_experience is True:
-                    experience['name'] = continued_name
-                if ce_regex.search(line) is not None:
-                    continued_experience = True
-                    continued_name = previous_line
-                    continue
-                if experience['name'] is None:
-                    experience['name'] = line
-            elif experience['title'] is None:
-                if ce_regex.search(line) is not None:
-                    continued_experience = True
-                    continued_name = previous_line
-                    continue
-                experience['title'] = line
-            elif experience['start'] is None:
-                try:
-                    split_line = line.split('-')
-                    start_str = split_line[0]
-                    s = split_line[1]
-                except IndexError:
-                    print(f"Error: could not split {line}")
-                end_str = s[0:s.find('(')]
-                duration_str = s[s.find('(') + 1:s.find(')')]
-                mask = '%B %Y'
-                dt1 = datetime.strptime(start_str, mask)
-                try:
-                    dt2 = datetime.strptime(end_str, mask)
-                except ValueError:
-                    dt2 = datetime.today()
-
-                experience['start'] = dt1.timestamp()
-                experience['end'] = dt2.timestamp()
-                experience['duration'] = (dt2-dt1).days
-            elif experience['location'] is None:
-                experience['location'] = line
-
+                    if ce_regex.search(result_list_slice[index + 1]) is not None:
+                        experience['name'] = result_list_slice[index + 0]
+                        continued_name = result_list_slice[index + 0]
+                        experience['title'] = result_list_slice[index + 2]
+                        experience['start'], experience['end'], experience['duration'] = get_timeline(
+                            result_list_slice[index + 3])
+                        experience['location'] = result_list_slice[index + 4]
+                    else:
+                        experience['name'] = continued_name
+                        experience['title'] = result_list_slice[index + 0]
+                        experience['start'], experience['end'], experience['duration'] = get_timeline(
+                            result_list_slice[index + 1])
+                        experience['location'] = result_list_slice[index + 2]
+                else:
+                    experience['name'] = result_list_slice[index + 0]
+                    experience['title'] = result_list_slice[index + 1]
+                    experience['start'], experience['end'], experience['duration'] = get_timeline(
+                        result_list_slice[index + 2])
+                    experience['location'] = result_list_slice[index + 3]
+            index += current_segment
     return experience_list
 
 

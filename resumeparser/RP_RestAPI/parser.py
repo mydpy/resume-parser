@@ -587,7 +587,8 @@ def parse(resume):
         'certifications': certifications,
         'publications': publications,
         'activity': activity,
-        'honors_awards': honors_awards
+        'honors_awards': honors_awards,
+        'raw_data': data
     }
 
     device.close()
